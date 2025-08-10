@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Table</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { font-family: system-ui, Arial; margin: 24px; }
+        .menu { border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:8px; }
+        .muted { color:#777; }
+    </style>
+</head>
+<body>
+<h1>BoothEat</h1>
+<p>
+    부스 ID: <b th:text="${boothId}">-</b> /
+    테이블 번호: <b th:text="${tableId}">-</b>
+</p>
+
+<h3>메뉴</h3>
+<div id="menus">로딩중...</div>
+
+<!-- 타임리프가 JS 안으로 값 주입하도록 설정 -->
+<script th:inline="javascript">
+    const boothId = [[${boothId}]];
+    const tableId = [[${tableId}]];
+
+    (function () {
+        fetch(`/api/booths/${boothId}/tables/${tableId}`, { cache: "no-store" })
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(data => {
+                const el = document.getElementById('menus');
+                el.innerHTML = '';
+
+                if (!data.menus || data.menus.length === 0) {
+                    el.innerHTML = '<div class="muted">메뉴가 없습니다.</div>';
+                    return;
+                }
+
+                data.menus.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'menu';
+                    // 가격 1,000단위 구분
+                    const price = Number(m.price).toLocaleString('ko-KR');
+                    div.textContent = `${m.name} - ${price}원`;
+                    el.appendChild(div);
+                });
+            })
+            .catch(err => {
+                document.getElementById('menus').textContent = '메뉴 로드 실패: ' + err.message;
+            });
+    })();
+</script>
+</body>
+</html>
