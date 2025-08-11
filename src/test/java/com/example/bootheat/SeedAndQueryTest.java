@@ -1,8 +1,10 @@
 package com.example.bootheat;
 
 import com.example.bootheat.domain.*;
+import com.example.bootheat.dto.CreateManagerUserRequest;
 import com.example.bootheat.dto.TableInfoResponse;
 import com.example.bootheat.repository.*;
+import com.example.bootheat.service.ManagerUserService;
 import com.example.bootheat.service.QueryService;
 import com.example.bootheat.support.Category;
 import org.junit.jupiter.api.*;
@@ -21,6 +23,11 @@ class SeedAndQueryTest {
     @Autowired BoothTableRepository boothTableRepository;
     @Autowired MenuItemRepository menuItemRepository;
     @Autowired QueryService queryService;
+
+    // ★ 추가: 매니저 등록/검증용
+    @Autowired
+    ManagerUserService managerUserService;
+    @Autowired ManagerUserRepository managerUserRepository;
 
     private Long savedBoothId;
 
@@ -57,6 +64,19 @@ class SeedAndQueryTest {
                 MenuItem.builder().booth(booth).name("치즈핫도그").category(Category.FOOD).price(5000).available(true).build(),
                 MenuItem.builder().booth(booth).name("콜라").category(Category.FOOD).price(2000).available(true).build()
         ));
+
+
+        // ★ 매니저 등록 (부스당 1명 정책)
+        // - 누적 실행 시 이미 존재하면 생성 생략
+        if (!managerUserRepository.existsByBooth_BoothId(savedBoothId)) {
+            managerUserService.create(
+                    savedBoothId,
+                    new CreateManagerUserRequest("manager01", "P@ssw0rd!", "MANAGER")
+            );
+        }
+
+        // (선택) 간단 검증: 매니저가 존재하는지 확인
+        assertThat(managerUserRepository.findByBooth_BoothId(savedBoothId)).isPresent();
     }
 
     @Test
