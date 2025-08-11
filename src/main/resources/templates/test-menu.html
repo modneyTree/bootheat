@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>BoothEat 메뉴 관리(테스트)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+        input, select, button { padding: 6px; margin: 2px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: middle; }
+        th { background: #fafafa; }
+        .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .muted { color: #777; }
+        .ok { color: #0a7f2e; }
+        .err { color: #b00020; }
+        .toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+        .section { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-top: 12px; }
+        .w-120 { width: 120px; } .w-180 { width: 180px; } .w-240 { width: 240px; } .w-80 { width:80px; }
+    </style>
+</head>
+<body>
+<h1>메뉴 관리 (테스트용)</h1>
+
+<div class="section">
+    <div class="toolbar">
+        <label>부스 ID:
+            <input type="number" id="boothId" value="1" min="1" class="w-80">
+        </label>
+        <button id="btnLoad">불러오기</button>
+        <button id="btnRefresh">새로고침</button>
+        <span id="msg" class="muted">-</span>
+    </div>
+</div>
+
+<div class="section">
+    <table id="tbl">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>이름</th>
+            <th>가격</th>
+            <th>카테고리</th>
+            <th>판매중?</th>
+            <th>미리보기URL</th>
+            <th>설명</th>
+            <th>동작</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="section">
+    <h3>메뉴 추가</h3>
+    <div class="row">
+        <label>이름 <input type="text" id="newName" placeholder="예: 핫도그" class="w-180"></label>
+        <label>가격 <input type="number" id="newPrice" min="0" value="4000" class="w-120"></label>
+        <label>카테고리
+            <select id="newCategory" class="w-120">
+                <option value="FOOD" selected>FOOD</option>
+                <option value="DRINK">DRINK</option>
+            </select>
+        </label>
+        <label>판매상태
+            <select id="newAvailable" class="w-120">
+                <option value="true" selected>판매중</option>
+                <option value="false">품절</option>
+            </select>
+        </label>
+        <label>미리보기URL <input type="text" id="newPreview" placeholder="http://..." class="w-240"></label>
+        <label>설명 <input type="text" id="newDesc" placeholder="간단 설명" class="w-240"></label>
+        <button id="btnAdd">추가</button>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const ctx = /*[[@{/}]]*/ '/';
+    const q = id => document.getElementById(id);
+    const tbody = document.querySelector('#tbl tbody');
+    const msg = q('msg');
+
+    q('btnLoad').onclick = load;
+    q('btnRefresh').onclick = load;
+    q('btnAdd').onclick = onAdd;
+
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function money(n){ return Number(n||0).toLocaleString('ko-KR'); }
+
+    async function load(){
+        const boothId = Number(q('boothId').value || 1);
+        msg.textContent = '로딩중...';
+        tbody.innerHTML = '';
+        try {
+            const r = await fetch(`${ctx}api/manager/menus?boothId=${boothId}`);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const list = await r.json();
+            list.forEach(m => addRow(m));
+            msg.innerHTML = `총 ${list.length}개`;
+        } catch(e) {
+            msg.innerHTML = `<span class="err">로드 실패: ${e.message}</span>`;
+        }
+    }
+
+    function addRow(m){
+        const tr = document.createElement('tr');
+        tr.dataset.id = m.menuItemId;
+        tr.innerHTML = `
+      <td>${m.menuItemId}</td>
+      <td><input value="${escapeHtml(m.name||'')}" class="w-180"></td>
+      <td><input type="number" min="0" value="${m.price||0}" class="w-120"></td>
+      <td>
+        <select class="w-120">
+          <option value="FOOD"  ${m.category==='FOOD'?'selected':''}>FOOD</option>
+          <option value="DRINK" ${m.category==='DRINK'?'selected':''}>DRINK</option>
+        </select>
+      </td>
+      <td><input type="checkbox" ${m.available ? 'checked' : ''}></td>
+      <td><input value="${escapeHtml(m.previewImage||'')}" class="w-240"></td>
+      <td><input value="${escapeHtml(m.description||'')}" class="w-240"></td>
+      <td>
+        <button class="btnSave">저장</button>
+        <button class="btnToggle">품절토글</button>
+        <button class="btnDelete">삭제</button>
+      </td>
+    `;
+        tr.querySelector('.btnSave').onclick = () => saveRow(tr);
+        tr.querySelector('.btnToggle').onclick = () => toggleRow(tr);
+        tr.querySelector('.btnDelete').onclick = () => deleteRow(tr);
+        tbody.appendChild(tr);
+    }
+
+    async function saveRow(tr){
+        const id = tr.dataset.id;
+        const tds = tr.querySelectorAll('td');
+        const name = tds[1].querySelector('input').value.trim();
+        const price = Number(tds[2].querySelector('input').value);
+        const category = tds[3].querySelector('select').value;
+        const available = tds[4].querySelector('input').checked;
+        const previewImage = tds[5].querySelector('input').value.trim();
+        const description = tds[6].querySelector('input').value.trim();
+
+        if (!name) { alert('이름을 입력하세요'); return; }
+        if (price < 0) { alert('가격은 0 이상'); return; }
+
+        const body = { name, price, available, previewImage, description, category };
+        const btn = tr.querySelector('.btnSave'); btn.disabled = true;
+
+        try {
+            const r = await fetch(`${ctx}api/manager/menus/${id}`, {
+                method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const saved = await r.json();
+            msg.innerHTML = `<span class="ok">저장 완료: #${saved.menuItemId} (${escapeHtml(saved.name)}) / ${money(saved.price)}원 / ${saved.category} / ${saved.available?'판매중':'품절'}</span>`;
+        } catch(e) {
+            msg.innerHTML = `<span class="err">저장 실패: ${e.message}</span>`;
+        } finally { btn.disabled = false; }
+    }
+
+    async function toggleRow(tr){
+        const id = tr.dataset.id;
+        const btn = tr.querySelector('.btnToggle'); btn.disabled = true;
+        try {
+            const r = await fetch(`${ctx}api/manager/menus/${id}/toggle-available`, { method:'POST' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const res = await r.json();
+            tr.querySelectorAll('td')[4].querySelector('input').checked = res.available;
+            msg.innerHTML = `<span class="ok">품절 토글: #${id} → ${res.available ? '판매중' : '품절'}</span>`;
+        } catch(e) {
+            msg.innerHTML = `<span class="err">토글 실패: ${e.message}</span>`;
+        } finally { btn.disabled = false; }
+    }
+
+    async function deleteRow(tr){
+        const id = tr.dataset.id;
+        if (!confirm(`#${id} 메뉴를 삭제할까요?`)) return;
+        const btn = tr.querySelector('.btnDelete'); btn.disabled = true;
+        try {
+            const r = await fetch(`${ctx}api/manager/menus/${id}`, { method:'DELETE' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            tr.remove();
+            msg.innerHTML = `<span class="ok">삭제 완료: #${id}</span>`;
+        } catch(e) {
+            msg.innerHTML = `<span class="err">삭제 실패: ${e.message}</span>`;
+        } finally { btn.disabled = false; }
+    }
+
+    async function onAdd(){
+        const boothId = Number(q('boothId').value || 1);
+        const name = q('newName').value.trim();
+        const price = Number(q('newPrice').value);
+        const category = q('newCategory').value;
+        const available = (q('newAvailable').value === 'true');
+        const previewImage = q('newPreview').value.trim();
+        const description = q('newDesc').value.trim();
+
+        if (!name) { alert('이름을 입력하세요'); return; }
+        if (price < 0) { alert('가격은 0 이상'); return; }
+
+        const body = { boothId, name, price, available, previewImage, description, category };
+        const btn = q('btnAdd'); btn.disabled = true;
+
+        try {
+            const r = await fetch(`${ctx}api/manager/menus`, {
+                method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const created = await r.json();
+            addRow(created);
+            q('newName').value=''; q('newPrice').value=0; q('newPreview').value=''; q('newDesc').value='';
+            q('newCategory').value='FOOD'; q('newAvailable').value='true';
+            msg.innerHTML = `<span class="ok">추가 완료: #${created.menuItemId}</span>`;
+        } catch(e) {
+            msg.innerHTML = `<span class="err">추가 실패: ${e.message}</span>`;
+        } finally { btn.disabled = false; }
+    }
+
+    // 최초 로드
+    load().catch(console.error);
+</script>
+</body>
+</html>

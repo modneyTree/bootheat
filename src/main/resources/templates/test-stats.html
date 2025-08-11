@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>BoothEat 오늘 집계/랭킹 테스트</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        input, select, button { padding: 6px; margin: 2px; }
+        .box { border: 1px solid #ddd; padding: 12px; margin-top: 12px; border-radius: 8px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background: #fafafa; }
+        .muted { color: #777; }
+    </style>
+</head>
+<body>
+<h1>BoothEat 오늘 집계 / 랭킹 테스트</h1>
+
+<div class="box">
+    <label>부스 ID:
+        <input type="number" id="boothId" value="1">
+    </label>
+    <button onclick="loadStats()">오늘 집계 조회</button>
+    <button onclick="loadRanking()">메뉴 랭킹 조회</button>
+    <button onclick="autoRefreshToggle()">자동 새로고침: <span id="autoStatus">OFF</span></button>
+</div>
+
+<div class="box" id="today-box">
+    <h3>오늘 집계</h3>
+    <div id="today-info" class="muted">-</div>
+    <table id="today-top-table">
+        <thead>
+        <tr><th>메뉴ID</th><th>이름</th><th>수량</th><th>매출</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="box" id="ranking-box">
+    <h3>메뉴 랭킹</h3>
+    <label>기준:
+        <select id="metric">
+            <option value="qty">수량</option>
+            <option value="amount">매출</option>
+        </select>
+    </label>
+    <label>개수:
+        <input type="number" id="limit" value="5">
+    </label>
+    <div id="ranking-info" class="muted">-</div>
+    <table id="ranking-table">
+        <thead>
+        <tr><th>순위</th><th>메뉴ID</th><th>이름</th><th>수량</th><th>매출</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    let autoTimer = null;
+
+    function money(n){ return Number(n).toLocaleString('ko-KR'); }
+    function fmt(x){ return x==null?'-':x; }
+
+    async function loadStats(){
+        const boothId = document.getElementById('boothId').value;
+        const r = await fetch(`/api/manager/stats/today?boothId=${boothId}&top=5`);
+        const data = await r.json();
+
+        document.getElementById('today-info').innerHTML =
+            `<div>총 주문수: ${data.totalOrders}</div>
+             <div>총 매출: ${money(data.totalAmount)}원</div>
+             <div>피크 시간: ${fmt(data.peakHour)}시</div>`;
+
+        const tbody = document.querySelector('#today-top-table tbody');
+        tbody.innerHTML = '';
+        (data.topItems || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.menuItemId}</td>
+                <td>${item.name}</td>
+                <td>${item.qty}</td>
+                <td>${money(item.amount)}원</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function loadRanking(){
+        const boothId = document.getElementById('boothId').value;
+        const metric = document.getElementById('metric').value;
+        const limit = document.getElementById('limit').value;
+        const r = await fetch(`/api/manager/rankings/menu?boothId=${boothId}&metric=${metric}&limit=${limit}`);
+        const data = await r.json();
+
+        document.getElementById('ranking-info').innerHTML =
+            `<div>날짜: ${data.date}, 기준: ${data.metric}</div>`;
+
+        const tbody = document.querySelector('#ranking-table tbody');
+        tbody.innerHTML = '';
+        (data.items || []).forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx+1}</td>
+                <td>${item.menuItemId}</td>
+                <td>${item.name}</td>
+                <td>${item.qty}</td>
+                <td>${money(item.amount)}원</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function autoRefreshToggle(){
+        if (autoTimer) {
+            clearInterval(autoTimer);
+            autoTimer = null;
+            document.getElementById('autoStatus').textContent = 'OFF';
+        } else {
+            loadStats();
+            loadRanking();
+            autoTimer = setInterval(() => {
+                loadStats();
+                loadRanking();
+            }, 30000);
+            document.getElementById('autoStatus').textContent = 'ON';
+        }
+    }
+
+    // 첫 로드
+    loadStats();
+    loadRanking();
+</script>
+</body>
+</html>

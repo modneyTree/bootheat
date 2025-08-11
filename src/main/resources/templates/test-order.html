@@ -230,6 +230,13 @@
         }
     }
 
+    async function finishOrder(){
+        const id = document.getElementById('approveOrderId').value;
+        const r = await fetch(`/api/manager/orders/${id}/finish`, { method:'POST' });
+        if (r.ok){ alert(`Order ${id} FINISHED`); await getOrder(); }
+        else { alert('완료 실패: HTTP ' + r.status); }
+    }
+
     // 초기 로드
     refreshContext().catch(console.error);
 </script>

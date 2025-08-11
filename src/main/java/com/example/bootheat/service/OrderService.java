@@ -141,4 +141,14 @@ public class OrderService {
                     v.setClosedAt(java.time.LocalDateTime.now());
                 });
     }
+
+    @Transactional
+    public void finish(Long orderId) {
+        CustomerOrder o = orderRepo.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("ORDER_NOT_FOUND"));
+        if (!Status.APPROVED.equals(o.getStatus())) {
+            throw new IllegalStateException("INVALID_STATE"); // APPROVED -> FINISHED만 허용
+        }
+        o.setStatus(Status.FINISHED);
+    }
 }

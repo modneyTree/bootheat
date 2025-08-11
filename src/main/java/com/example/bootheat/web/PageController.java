@@ -22,4 +22,12 @@ public class PageController {
     public String testOrderPage() {
         return "test-order";
     }
+
+    @GetMapping("/test-menu")
+    public String testMenu() { return "test-menu"; }
+
+    @GetMapping("/test-stats")
+    public String testStats() {
+        return "test-stats";
+    }
 }

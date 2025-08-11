@@ -6,7 +6,9 @@ values (1, 1, 1, true, CURRENT_TIMESTAMP()),
        (2, 1, 2, true, CURRENT_TIMESTAMP()),
        (3, 1, 3, true, CURRENT_TIMESTAMP());
 
-insert into menu_item(menu_item_id, booth_id, name, price, available, created_at)
-values (1, 1, '핫도그', 4000, true, CURRENT_TIMESTAMP()),
-       (2, 1, '치즈핫도그', 5000, true, CURRENT_TIMESTAMP()),
-       (3, 1, '콜라', 2000, true, CURRENT_TIMESTAMP());
+-- data.sql 예시(추가 변경)
+-- 메뉴에 category 기입
+INSERT INTO menu_item(menu_item_id, booth_id, name, price, available, category, created_at)
+VALUES (1, 1, '핫도그', 4000, TRUE, 'FOOD', CURRENT_TIMESTAMP()),
+       (2, 1, '치즈핫도그', 5000, TRUE, 'FOOD', CURRENT_TIMESTAMP()),
+       (3, 1, '콜라', 2000, TRUE, 'DRINK', CURRENT_TIMESTAMP());

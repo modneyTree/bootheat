@@ -4,6 +4,7 @@ import com.example.bootheat.domain.*;
 import com.example.bootheat.dto.TableInfoResponse;
 import com.example.bootheat.repository.*;
 import com.example.bootheat.service.QueryService;
+import com.example.bootheat.support.Category;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,6 +35,7 @@ class SeedAndQueryTest {
         Booth booth = Booth.builder()
                 .name("핫도그부스")
                 .location("A동 앞")
+                .boothAccount("카카오 3333-3333-3333")
                 .build();
         booth = boothRepository.save(booth);
         savedBoothId = booth.getBoothId(); // ← 하드코딩 1L 대신 실제 ID 사용
@@ -51,9 +53,9 @@ class SeedAndQueryTest {
 
         // menus
         menuItemRepository.saveAll(List.of(
-                MenuItem.builder().booth(booth).name("핫도그").price(4000).available(true).build(),
-                MenuItem.builder().booth(booth).name("치즈핫도그").price(5000).available(true).build(),
-                MenuItem.builder().booth(booth).name("콜라").price(2000).available(true).build()
+                MenuItem.builder().booth(booth).name("핫도그").category(Category.FOOD).price(4000).available(true).build(),
+                MenuItem.builder().booth(booth).name("치즈핫도그").category(Category.FOOD).price(5000).available(true).build(),
+                MenuItem.builder().booth(booth).name("콜라").category(Category.FOOD).price(2000).available(true).build()
         ));
     }
 

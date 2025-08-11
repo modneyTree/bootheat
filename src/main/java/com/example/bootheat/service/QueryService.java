@@ -28,8 +28,10 @@ public class QueryService {
         var table = tableRepo.findByBooth_BoothIdAndTableNumber(boothId, tableNo)
                 .orElseThrow(() -> new IllegalArgumentException("TABLE_NOT_FOUND"));
         var menus = menuRepo.findByBooth_BoothIdAndAvailableTrue(boothId).stream()
-                .map(m -> new TableInfoResponse.Menu(m.getMenuItemId(), m.getName(), m.getPrice(), m.getAvailable()))
-                .toList();
+                .map(m -> new TableInfoResponse.Menu(
+                        m.getMenuItemId(), m.getName(), m.getPrice(), m.getAvailable(),
+                        m.getCategory()==null?null:m.getCategory().name()
+                )).toList();
         return new TableInfoResponse(boothId, table.getTableNumber(), menus);
     }
 

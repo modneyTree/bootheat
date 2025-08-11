@@ -3,6 +3,7 @@ package com.example.bootheat;
 
 import com.example.bootheat.domain.*;
 import com.example.bootheat.repository.*;
+import com.example.bootheat.support.Category;
 
 import java.util.List;
 
@@ -23,9 +24,9 @@ public final class TestSeedUtil {
         }
 
         menuRepo.saveAll(List.of(
-                MenuItem.builder().booth(booth).name("핫도그").price(4000).available(true).build(),
-                MenuItem.builder().booth(booth).name("치즈핫도그").price(5000).available(true).build(),
-                MenuItem.builder().booth(booth).name("콜라").price(2000).available(true).build()
+                MenuItem.builder().booth(booth).name("핫도그").category(Category.FOOD).price(4000).available(true).build(),
+                MenuItem.builder().booth(booth).name("치즈핫도그").category(Category.FOOD).price(5000).available(true).build(),
+                MenuItem.builder().booth(booth).name("콜라").category(Category.FOOD).price(2000).available(true).build()
         ));
         return booth;
     }
