@@ -3,4 +3,9 @@ package com.example.bootheat.repository;
 import com.example.bootheat.domain.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Long> {}
+import java.util.List;
+
+public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Long> {
+    List<CustomerOrder> findTop10ByTable_TableIdOrderByCreatedAtDesc(Long tableId);
+
+}

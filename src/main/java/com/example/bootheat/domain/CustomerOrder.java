@@ -26,7 +26,7 @@ public class CustomerOrder {
     private TableVisit visit;
 
     @Column(nullable=false) private String status; // PENDING/APPROVED/REJECTED
-    @Column(unique=true, nullable=false) private String orderCode;
+    @Column(name="order_code", unique=true, nullable = true) private String orderCode;
     @Column(nullable=false) private Integer totalAmount;
 
     @Column(nullable=false) @Builder.Default

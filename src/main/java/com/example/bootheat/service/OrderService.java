@@ -4,6 +4,7 @@ import com.example.bootheat.domain.*;
 import com.example.bootheat.dto.CreateOrderRequest;
 import com.example.bootheat.dto.OrderDetailResponse;
 import com.example.bootheat.dto.OrderSummaryResponse;
+import com.example.bootheat.dto.TableContextResponse;
 import com.example.bootheat.repository.*;
 import com.example.bootheat.support.Status;
 import com.example.bootheat.util.CodeGenerator;
@@ -39,12 +40,8 @@ public class OrderService {
                 .orElseGet(() -> {
                     int nextNo = visitRepo.findTopByTable_TableIdOrderByVisitNoDesc(table.getTableId())
                             .map(v -> v.getVisitNo() + 1).orElse(1);
-                    TableVisit v = TableVisit.builder()
-                            .table(table)
-                            .visitNo(nextNo)
-                            .status(Status.OPEN)
-                            .build();
-                    return visitRepo.save(v);
+                    return visitRepo.save(TableVisit.builder()
+                            .table(table).visitNo(nextNo).status(Status.OPEN).build());
                 });
 
         // 2) 가격 확정 & 총액 계산
@@ -56,8 +53,7 @@ public class OrderService {
             if (!Boolean.TRUE.equals(mi.getAvailable()))
                 throw new IllegalStateException("OUT_OF_STOCK");
 
-            int lineAmount = mi.getPrice() * it.quantity();
-            sum += lineAmount;
+            sum += mi.getPrice() * it.quantity();
 
             OrderItem oi = new OrderItem();
             oi.setMenuItem(mi);
@@ -66,17 +62,22 @@ public class OrderService {
             lines.add(oi);
         }
 
-        // 3) 주문 생성 (visit 연결)
+        // 3) 주문 생성: 우선 order_code 없이 저장해 PK 확보
         CustomerOrder order = new CustomerOrder();
         order.setBooth(booth);
         order.setTable(table);
-        order.setVisit(visit);                // ★
+        order.setVisit(visit);
         order.setStatus(Status.PENDING);
-        order.setOrderCode(CodeGenerator.orderCode());
         order.setTotalAmount(sum);
-        orderRepo.save(order);
 
-        // 4) 라인/결제 저장
+        orderRepo.saveAndFlush(order); // <-- PK(order_id) 확보
+
+        // 4) order_id 기반으로 유일한 order_code 생성 후 세팅
+        order.setOrderCode(CodeGenerator.orderCodeFromId(order.getOrderId()));
+        // save 호출 없이도 트랜잭션 커밋 시 업데이트 되지만, 즉시 반영 원하면 주석 해제
+        // orderRepo.save(order);
+
+        // 5) 라인/결제 저장
         for (OrderItem oi : lines) oi.setOrder(order);
         orderItemRepo.saveAll(lines);
 
@@ -92,6 +93,7 @@ public class OrderService {
                 order.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()
         );
     }
+
 
     @Transactional(readOnly = true)
     public OrderDetailResponse getOrder(Long orderId) {

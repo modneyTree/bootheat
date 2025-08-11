@@ -1,58 +1,163 @@
-<!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8" />
-    <title>Table</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-        body { font-family: system-ui, Arial; margin: 24px; }
-        .menu { border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:8px; }
-        .muted { color:#777; }
-    </style>
-</head>
-<body>
-<h1>BoothEat</h1>
-<p>
-    부스 ID: <b th:text="${boothId}">-</b> /
-    테이블 번호: <b th:text="${tableId}">-</b>
-</p>
-
 <h3>메뉴</h3>
-<div id="menus">로딩중...</div>
+<div id="state" class="muted">로딩중...</div>
+<div id="menus"></div>
 
-<!-- 타임리프가 JS 안으로 값 주입하도록 설정 -->
+<h3 style="margin-top:24px;">장바구니</h3>
+<div id="cart-empty" class="muted">아직 담은 메뉴가 없습니다.</div>
+<div id="cart"></div>
+
+<div id="checkout" style="margin-top:12px; display:none;">
+    <label>입금자명:
+        <input id="payerName" type="text" placeholder="이름" style="padding:6px;">
+    </label>
+    <div style="margin-top:8px;">
+        총액: <b id="total">0</b> 원
+    </div>
+    <button id="orderBtn" style="margin-top:8px;">주문하기</button>
+    <div id="orderMsg" class="muted" style="margin-top:6px;"></div>
+</div>
+
 <script th:inline="javascript">
     const boothId = [[${boothId}]];
     const tableId = [[${tableId}]];
+    const ctx = /*[[@{/}]]*/ '/';
 
-    (function () {
-        fetch(`/api/booths/${boothId}/tables/${tableId}`, { cache: "no-store" })
-            .then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            })
-            .then(data => {
-                const el = document.getElementById('menus');
-                el.innerHTML = '';
+    const stateEl = document.getElementById('state');
+    const menuWrap = document.getElementById('menus');
+    const cartWrap = document.getElementById('cart');
+    const cartEmpty = document.getElementById('cart-empty');
+    const checkout = document.getElementById('checkout');
+    const totalEl = document.getElementById('total');
+    const orderBtn = document.getElementById('orderBtn');
+    const orderMsg = document.getElementById('orderMsg');
 
-                if (!data.menus || data.menus.length === 0) {
-                    el.innerHTML = '<div class="muted">메뉴가 없습니다.</div>';
-                    return;
-                }
+    const fmt = n => Number(n).toLocaleString('ko-KR');
 
-                data.menus.forEach(m => {
-                    const div = document.createElement('div');
-                    div.className = 'menu';
-                    // 가격 1,000단위 구분
-                    const price = Number(m.price).toLocaleString('ko-KR');
-                    div.textContent = `${m.name} - ${price}원`;
-                    el.appendChild(div);
-                });
-            })
-            .catch(err => {
-                document.getElementById('menus').textContent = '메뉴 로드 실패: ' + err.message;
+    // 장바구니: {menuItemId, name, price, qty}
+    let cart = [];
+    let menuMap = new Map(); // menuItemId -> {name, price, available}
+
+    function renderCart(){
+        cartWrap.innerHTML = '';
+        if (cart.length === 0){
+            cartEmpty.style.display = '';
+            checkout.style.display = 'none';
+            totalEl.textContent = '0';
+            return;
+        }
+        cartEmpty.style.display = 'none';
+        checkout.style.display = '';
+
+        let total = 0;
+        cart.forEach(item => {
+            total += item.price * item.qty;
+            const row = document.createElement('div');
+            row.className = 'menu';
+            row.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div><b>${item.name}</b> - ${fmt(item.price)}원</div>
+          <div>
+            <button onclick="changeQty(${item.menuItemId}, -1)">-</button>
+            <span style="margin:0 8px">${item.qty}</span>
+            <button onclick="changeQty(${item.menuItemId}, 1)">+</button>
+            <button onclick="removeItem(${item.menuItemId})" style="margin-left:8px;">삭제</button>
+          </div>
+        </div>`;
+            cartWrap.appendChild(row);
+        });
+        totalEl.textContent = fmt(total);
+    }
+
+    function addToCart(menuItemId){
+        const meta = menuMap.get(menuItemId);
+        if (!meta || !meta.available){ alert('품절이거나 없는 메뉴입니다.'); return; }
+        const i = cart.findIndex(it => it.menuItemId === menuItemId);
+        if (i >= 0) cart[i].qty += 1;
+        else cart.push({menuItemId, name: meta.name, price: meta.price, qty: 1});
+        renderCart();
+    }
+    function changeQty(menuItemId, delta){
+        const i = cart.findIndex(it => it.menuItemId === menuItemId);
+        if (i < 0) return;
+        cart[i].qty += delta;
+        if (cart[i].qty <= 0) cart.splice(i,1);
+        renderCart();
+    }
+    function removeItem(menuItemId){
+        cart = cart.filter(it => it.menuItemId !== menuItemId);
+        renderCart();
+    }
+
+    async function loadMenus(){
+        stateEl.textContent = '로딩중...';
+        menuWrap.innerHTML = '';
+        try {
+            const r = await fetch(`${ctx}api/booths/${boothId}/tables/${tableId}`, { cache: 'no-store' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            stateEl.textContent = '';
+
+            if (!data.menus || data.menus.length === 0){
+                menuWrap.innerHTML = '<div class="muted">메뉴가 없습니다.</div>';
+                return;
+            }
+
+            data.menus.forEach(m => {
+                menuMap.set(m.menuItemId, {name: m.name, price: m.price, available: m.available});
+                const div = document.createElement('div');
+                div.className = 'menu';
+                const price = fmt(m.price);
+                const disabled = !m.available ? 'disabled' : '';
+                const soldout = !m.available ? ' (품절)' : '';
+                div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>${m.name} - ${price}원${soldout}</div>
+            <button ${disabled} onclick="addToCart(${m.menuItemId})">담기</button>
+          </div>`;
+                menuWrap.appendChild(div);
             });
-    })();
+        } catch(e) {
+            stateEl.textContent = '메뉴 로드 실패: ' + e.message;
+        }
+    }
+
+    orderBtn.addEventListener('click', async () => {
+        if (cart.length === 0) { orderMsg.textContent = '장바구니가 비었습니다.'; return; }
+        const payerName = (document.getElementById('payerName').value || '손님').trim();
+        const total = cart.reduce((acc, it) => acc + it.price * it.qty, 0);
+
+        // CreateOrderRequest JSON
+        const body = {
+            boothId: Number(boothId),
+            tableNo: Number(tableId),
+            items: cart.map(it => ({ menuItemId: it.menuItemId, quantity: it.qty })),
+            payment: { payerName, amount: total }
+        };
+
+        orderBtn.disabled = true; orderMsg.textContent = '주문 전송 중...';
+        try {
+            const r = await fetch(`${ctx}api/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'X-Idempotency-Key': crypto.randomUUID(), // (선택) 중복 방지 헤더
+                },
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) {
+                const txt = await r.text();
+                throw new Error(`HTTP ${r.status} - ${txt}`);
+            }
+            const res = await r.json();
+            orderMsg.innerHTML = `주문 완료: <b>#${res.orderId}</b> (${res.orderCode}) / 상태=${res.status}, 금액=${fmt(res.totalAmount)}원`;
+            // 성공 후 장바구니 비우기
+            cart = []; renderCart();
+        } catch(e) {
+            orderMsg.textContent = '주문 실패: ' + e.message;
+        } finally {
+            orderBtn.disabled = false;
+        }
+    });
+
+    loadMenus().catch(console.error);
 </script>
-</body>
-</html>

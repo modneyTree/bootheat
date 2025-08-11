@@ -1,9 +1,6 @@
 package com.example.bootheat.web;
 
-import com.example.bootheat.dto.CreateOrderRequest;
-import com.example.bootheat.dto.OrderDetailResponse;
-import com.example.bootheat.dto.OrderSummaryResponse;
-import com.example.bootheat.dto.TableInfoResponse;
+import com.example.bootheat.dto.*;
 import com.example.bootheat.service.OrderService;
 import com.example.bootheat.service.QueryService;
 import jakarta.validation.Valid;
@@ -31,4 +28,11 @@ public class PublicController {
     public OrderDetailResponse order(@PathVariable Long orderId) {
         return orderService.getOrder(orderId);
     }
+
+    @GetMapping("/dev/table-context")
+    public TableContextResponse tableContext(@RequestParam Long boothId,
+                                             @RequestParam Integer tableNo) {
+        return queryService.getTableContext(boothId, tableNo);
+    }
+
 }
