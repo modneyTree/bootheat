@@ -1,3 +1,7 @@
 package com.example.bootheat.dto;
 
-public record AccountInfoResponse(Long boothId, String account) {}
+public record AccountInfoResponse(
+        String bank,
+        String account,
+        String accountHolder
+) {}

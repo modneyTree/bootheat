@@ -26,21 +26,22 @@ public class ManagerUserService {
     public ManagerUserDto create(Long boothId, CreateManagerUserRequest req) {
         Booth booth = boothRepo.findById(boothId)
                 .orElseThrow(() -> new IllegalArgumentException("BOOTH_NOT_FOUND"));
-
-        if (managerRepo.existsByBooth_BoothId(boothId)) {
+        if (managerRepo.existsByBooth_BoothId(boothId))
             throw new IllegalArgumentException("MANAGER_ALREADY_EXISTS");
-        }
-        if (managerRepo.existsByUsername(req.username())) {
+        if (managerRepo.existsByUsername(req.username()))
             throw new IllegalArgumentException("USERNAME_TAKEN");
-        }
 
-        String role = (req.role() == null || req.role().isBlank()) ? "MANAGER" : req.role().toUpperCase();
+        String role = (req.role()==null || req.role().isBlank()) ? "MANAGER" : req.role().toUpperCase();
 
         ManagerUser mu = ManagerUser.builder()
                 .booth(booth)
                 .username(req.username())
                 .passwordHash(passwordEncoder.encode(req.password()))
                 .role(role)
+                .account(req.account())               // (구)문자열 보관은 선택
+                .accountBank(req.bank())
+                .accountNo(req.account())
+                .accountHolder(req.accountHolder())
                 .build();
 
         managerRepo.save(mu);
@@ -60,7 +61,8 @@ public class ManagerUserService {
                 m.getBooth().getBoothId(),
                 m.getUsername(),
                 m.getRole(),
-                m.getCreatedAt() == null ? null : m.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()
+                m.getAccount(), // ★
+                m.getCreatedAt()==null ? null : m.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()
         );
     }
 }

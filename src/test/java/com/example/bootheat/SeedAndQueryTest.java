@@ -42,7 +42,6 @@ class SeedAndQueryTest {
         Booth booth = Booth.builder()
                 .name("핫도그부스")
                 .location("A동 앞")
-                .boothAccount("카카오 3333-3333-3333")
                 .build();
         booth = boothRepository.save(booth);
         savedBoothId = booth.getBoothId(); // ← 하드코딩 1L 대신 실제 ID 사용
@@ -71,7 +70,7 @@ class SeedAndQueryTest {
         if (!managerUserRepository.existsByBooth_BoothId(savedBoothId)) {
             managerUserService.create(
                     savedBoothId,
-                    new CreateManagerUserRequest("manager01", "P@ssw0rd!", "MANAGER")
+                    new CreateManagerUserRequest("manager01", "P@ssw0rd!", "MANAGER", "카카오톡", "010-1234-5678", "정석찬")
             );
         }
 

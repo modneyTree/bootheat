@@ -1,9 +1,7 @@
 // web/ManagerStatsController.java
 package com.example.bootheat.web;
 
-import com.example.bootheat.dto.MenuRankingResponse;
-import com.example.bootheat.dto.TableContextResponse;
-import com.example.bootheat.dto.TodayStatsResponse;
+import com.example.bootheat.dto.*;
 import com.example.bootheat.service.StatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -15,24 +13,32 @@ public class ManagerStatsController {
 
     private final StatsService statsService;
 
-    // 오늘 현황 (총 주문수/매출, Top N, 피크아워)
-    // GET /api/manager/stats/today?boothId=1&top=5
-    @GetMapping("/stats/today")
-    public TodayStatsResponse today(@RequestParam Long boothId,
-                                    @RequestParam(name="top", defaultValue = "5") int top) {
-        return statsService.todayStats(boothId, Math.max(1, Math.min(top, 20)));
+    // GET /api/manager/booths/{boothId}/menus/{menuItemId}/metrics/total-orders
+    @GetMapping("/booths/{boothId}/menus/{menuItemId}/metrics/total-orders")
+    public MenuTotalOrdersNewResponse totalOrders(@PathVariable Long boothId,
+                                                  @PathVariable Long menuItemId) {
+        long total = statsService.totalOrdersForMenu(boothId, menuItemId);
+        return new MenuTotalOrdersNewResponse(menuItemId, total);
     }
 
-    // 메뉴 랭킹 (오늘)
-    // GET /api/manager/rankings/menu?boothId=1&metric=qty|amount&limit=5
-    @GetMapping("/rankings/menu")
-    public MenuRankingResponse ranking(@RequestParam Long boothId,
-                                       @RequestParam(defaultValue = "qty") String metric,
-                                       @RequestParam(defaultValue = "5") int limit) {
-        String m = "amount".equalsIgnoreCase(metric) ? "amount" : "qty";
-        int lim = Math.max(1, Math.min(limit, 50));
-        return statsService.ranking(boothId, m, lim);
+
+    // GET /api/manager/booths/{boothId}/stats/menu-sales?date=YYYY-MM-DD
+    @GetMapping("/booths/{boothId}/stats/menu-sales")
+    public java.util.List<MenuSalesItem> menuSales(@PathVariable Long boothId,
+                                                   @RequestParam(required = false)
+                                                   @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                                   java.time.LocalDate date) {
+        return statsService.menuSalesItems(boothId, date);
     }
+
+    // web/ManagerStatsController.java (엔드포인트 추가/교체)
+    @GetMapping("/booths/{boothId}/stats/date/{date}")
+    public StatsSummaryResponse summaryByDate(@PathVariable Long boothId,
+                                              @PathVariable @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                              java.time.LocalDate date) {
+        return statsService.statsSummaryByDate(boothId, date);
+    }
+
 
 
 }

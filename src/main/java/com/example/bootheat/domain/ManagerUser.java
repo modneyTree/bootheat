@@ -10,12 +10,11 @@ import java.time.LocalDateTime;
 @Table(
         name = "manager_user",
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"booth_id"}),   // ★ 부스당 매니저 1명
-                @UniqueConstraint(columnNames = {"username"})    // 이미 있던 의미와 동일(전역 유니크)
+                @UniqueConstraint(columnNames = {"booth_id"}),   // 부스당 1명 정책
+                @UniqueConstraint(columnNames = {"username"})
         }
 )
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor @Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ManagerUser {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long managerId;
@@ -32,6 +31,18 @@ public class ManagerUser {
 
     @Column(nullable = false, length = 20)
     private String role; // MANAGER | ADMIN
+    // ★ 복원
+    @Column(length = 200)
+    private String account; // "카뱅 3333-..." 형태
+
+    @Column(length = 50)
+    private String accountBank;
+
+    @Column(length = 200)
+    private String accountNo;
+
+    @Column(length = 100)
+    private String accountHolder;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

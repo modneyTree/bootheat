@@ -2,6 +2,7 @@ package com.example.bootheat.service;
 
 import com.example.bootheat.dto.AccountInfoResponse;
 import com.example.bootheat.repository.BoothRepository;
+import com.example.bootheat.repository.ManagerUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,13 +11,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class BoothQueryService {
-    private final BoothRepository boothRepo; // ★ 변경: managerRepo → boothRepo
+public class ManagerQueryService {
+    private final ManagerUserRepository managerRepo;
 
+    @Transactional(readOnly = true)
     public AccountInfoResponse getAccount(Long boothId) {
-        var b = boothRepo.findById(boothId)
-                .orElseThrow(() -> new IllegalArgumentException("BOOTH_NOT_FOUND"));
-        // booth.boothAccount가 null일 수도 있으니 널 허용
-        return new AccountInfoResponse(boothId, b.getBoothAccount());
+        var m = managerRepo.findByBooth_BoothId(boothId)
+                .orElseThrow(() -> new IllegalArgumentException("MANAGER_NOT_FOUND"));
+        return new AccountInfoResponse(
+                m.getAccountBank(),
+                m.getAccountNo(),
+                m.getAccountHolder()
+        );
     }
 }

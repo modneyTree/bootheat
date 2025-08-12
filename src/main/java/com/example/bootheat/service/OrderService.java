@@ -1,10 +1,7 @@
 package com.example.bootheat.service;
 
 import com.example.bootheat.domain.*;
-import com.example.bootheat.dto.CreateOrderRequest;
-import com.example.bootheat.dto.OrderDetailResponse;
-import com.example.bootheat.dto.OrderSummaryResponse;
-import com.example.bootheat.dto.TableContextResponse;
+import com.example.bootheat.dto.*;
 import com.example.bootheat.repository.*;
 import com.example.bootheat.support.Status;
 import com.example.bootheat.util.CodeGenerator;
@@ -27,14 +24,15 @@ public class OrderService {
     private final OrderItemRepository orderItemRepo;
     private final PaymentInfoRepository paymentRepo;
 
+    // service/OrderService.java (createOrder 수정)
     @Transactional
-    public OrderSummaryResponse createOrder(CreateOrderRequest req) {
+    public OrderCreatedResponse createOrder(CreateOrderRequest req) {
         Booth booth = boothRepo.findById(req.boothId())
                 .orElseThrow(() -> new IllegalArgumentException("BOOTH_NOT_FOUND"));
         BoothTable table = tableRepo.findByBooth_BoothIdAndTableNumber(req.boothId(), req.tableNo())
                 .orElseThrow(() -> new IllegalArgumentException("TABLE_NOT_FOUND"));
 
-        // 1) OPEN visit 재사용 or 새로 생성
+        // OPEN visit 재사용 or 새로 생성
         TableVisit visit = visitRepo
                 .findFirstByTable_TableIdAndStatusOrderByStartedAtDesc(table.getTableId(), Status.OPEN)
                 .orElseGet(() -> {
@@ -44,56 +42,53 @@ public class OrderService {
                             .table(table).visitNo(nextNo).status(Status.OPEN).build());
                 });
 
-        // 2) 가격 확정 & 총액 계산
-        int sum = 0;
-        List<OrderItem> lines = new ArrayList<>();
+        // ✅ 클라 값을 신뢰: unitPrice = req.items[*].price
+        int computedSum = 0;
+        List<OrderItem> lines = new java.util.ArrayList<>();
         for (var it : req.items()) {
-            MenuItem mi = menuRepo.findById(it.menuItemId())
+            var mi = menuRepo.findById(it.foodId())
                     .orElseThrow(() -> new IllegalArgumentException("MENU_NOT_FOUND"));
-            if (!Boolean.TRUE.equals(mi.getAvailable()))
-                throw new IllegalStateException("OUT_OF_STOCK");
-
-            sum += mi.getPrice() * it.quantity();
+            int unit = it.price();               // ★ 클라 가격 사용
+            int qty  = it.quantity();
+            computedSum += unit * qty;
 
             OrderItem oi = new OrderItem();
-            oi.setMenuItem(mi);
-            oi.setQuantity(it.quantity());
-            oi.setUnitPrice(mi.getPrice());
+            oi.setMenuItem(mi);                  // FK는 유지 (통계/참조용)
+            oi.setQuantity(qty);
+            oi.setUnitPrice(unit);               // ★ 클라 가격 저장
             lines.add(oi);
         }
 
-        // 3) 주문 생성: 우선 order_code 없이 저장해 PK 확보
+        // ✅ 총액도 클라 payment.amount를 그대로 사용 (할인/프로모션 반영 가정)
+        int totalAmount = req.payment().amount();
+
         CustomerOrder order = new CustomerOrder();
         order.setBooth(booth);
         order.setTable(table);
         order.setVisit(visit);
-        order.setStatus(Status.PENDING);
-        order.setTotalAmount(sum);
+        order.setStatus(Status.PENDING);         // 내부 상태
+        order.setTotalAmount(totalAmount);       // ★ 클라 금액 사용
 
-        orderRepo.saveAndFlush(order); // <-- PK(order_id) 확보
-
-        // 4) order_id 기반으로 유일한 order_code 생성 후 세팅
+        orderRepo.saveAndFlush(order);
         order.setOrderCode(CodeGenerator.orderCodeFromId(order.getOrderId()));
-        // save 호출 없이도 트랜잭션 커밋 시 업데이트 되지만, 즉시 반영 원하면 주석 해제
-        // orderRepo.save(order);
 
-        // 5) 라인/결제 저장
         for (OrderItem oi : lines) oi.setOrder(order);
         orderItemRepo.saveAll(lines);
 
         PaymentInfo pi = new PaymentInfo();
         pi.setOrder(order);
         pi.setPayerName(req.payment().payerName());
-        pi.setAmount(req.payment().amount());
+        pi.setAmount(totalAmount);               // ★ 클라 금액 저장
         paymentRepo.save(pi);
 
-        return new OrderSummaryResponse(
-                order.getOrderId(), order.getOrderCode(), order.getStatus(),
-                order.getTotalAmount(),
-                order.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()
+        // ✅ 응답 status는 스펙 그대로 "PENDDING"
+        return new OrderCreatedResponse(
+                order.getOrderId(),
+                "PENDDING",                      // 의도적 철자 (프론트 계약)
+                totalAmount,
+                order.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
         );
     }
-
 
     @Transactional(readOnly = true)
     public OrderDetailResponse getOrder(Long orderId) {
@@ -120,6 +115,38 @@ public class OrderService {
                 (o.getVisit() == null) ? null : o.getVisit().getVisitId()
         );
     }
+    // service/OrderService.java
+    @Transactional
+    public void changeStatus(Long orderId, String raw) {
+        String st = raw == null ? "" : raw.trim().toUpperCase();
+        // 철자 보정: 'PENDDING'도 PENDING으로 처리
+        if ("PENDDING".equals(st)) st = "PENDING";
+
+        switch (st) {
+            case "APPROVED" -> approve(orderId);
+            case "REJECTED" -> reject(orderId);
+            case "PENDING"  -> setPending(orderId);
+            case "FINISHED" -> finish(orderId);
+            default -> throw new IllegalArgumentException("UNKNOWN_STATUS");
+        }
+    }
+
+    @Transactional
+    public void reject(Long orderId) {
+        var o = orderRepo.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("ORDER_NOT_FOUND"));
+        if (!Status.PENDING.equals(o.getStatus()))
+            throw new IllegalStateException("INVALID_STATE");
+        o.setStatus(Status.REJECTED);
+    }
+
+    @Transactional
+    public void setPending(Long orderId) {
+        var o = orderRepo.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("ORDER_NOT_FOUND"));
+        // 필요 시 추가 규칙
+        o.setStatus(Status.PENDING);
+    }
 
     @Transactional
     public void approve(Long orderId) {
@@ -128,6 +155,16 @@ public class OrderService {
         if (!Status.PENDING.equals(o.getStatus())) throw new IllegalStateException("INVALID_STATE");
         o.setStatus(Status.APPROVED);
         o.setApprovedAt(java.time.LocalDateTime.now());
+    }
+
+    @Transactional
+    public void finish(Long orderId) {
+        CustomerOrder o = orderRepo.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("ORDER_NOT_FOUND"));
+        if (!Status.APPROVED.equals(o.getStatus())) {
+            throw new IllegalStateException("INVALID_STATE"); // APPROVED -> FINISHED만 허용
+        }
+        o.setStatus(Status.FINISHED);
     }
 
     // (선택) 테이블 비우기(visit 종료)
@@ -143,12 +180,37 @@ public class OrderService {
     }
 
     @Transactional
-    public void finish(Long orderId) {
-        CustomerOrder o = orderRepo.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("ORDER_NOT_FOUND"));
-        if (!Status.APPROVED.equals(o.getStatus())) {
-            throw new IllegalStateException("INVALID_STATE"); // APPROVED -> FINISHED만 허용
-        }
-        o.setStatus(Status.FINISHED);
+    public void closeCurrentVisitByTableId(Long tableId) {
+        var table = tableRepo.findById(tableId).orElseThrow(() -> new IllegalArgumentException("TABLE_NOT_FOUND"));
+        visitRepo.findFirstByTable_TableIdAndStatusOrderByStartedAtDesc(tableId, Status.OPEN)
+                .ifPresent(v -> { v.setStatus(Status.CLOSED); v.setClosedAt(java.time.LocalDateTime.now()); });
     }
+
+    public List<TableContextResponse.OrderRow> getLatestVisitOrders(Long tableId) {
+        var visit = visitRepo.findFirstByTable_TableIdAndStatusOrderByStartedAtDesc(tableId, Status.OPEN)
+                .orElseGet(() -> visitRepo.findTopByTable_TableIdOrderByStartedAtDesc(tableId)
+                        .orElseThrow(() -> new IllegalArgumentException("VISIT_NOT_FOUND")));
+        return orderRepo.findByVisit_VisitIdOrderByCreatedAtDesc(visit.getVisitId())
+                .stream().map(o -> new TableContextResponse.OrderRow(
+                        o.getOrderId(), o.getOrderCode(), o.getStatus(), o.getTotalAmount(),
+                        o.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant(),
+                        o.getApprovedAt() == null ? null : o.getApprovedAt().atZone(ZoneId.systemDefault()).toInstant(),
+                        o.getVisit().getVisitId()
+                )).toList();
+    }
+
+    public List<TableContextResponse.OrderRow> getTableOrders(Long boothId, Long tableId) {
+        var table = tableRepo.findById(tableId).orElseThrow(() -> new IllegalArgumentException("TABLE_NOT_FOUND"));
+        if (!table.getBooth().getBoothId().equals(boothId))
+            throw new IllegalArgumentException("BOOTH_TABLE_MISMATCH");
+        return orderRepo.findByBooth_BoothIdAndTable_TableIdOrderByCreatedAtDesc(boothId, tableId)
+                .stream().map(o -> new TableContextResponse.OrderRow(
+                        o.getOrderId(), o.getOrderCode(), o.getStatus(), o.getTotalAmount(),
+                        o.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant(),
+                        o.getApprovedAt()==null?null:o.getApprovedAt().atZone(ZoneId.systemDefault()).toInstant(),
+                        o.getVisit().getVisitId()
+                )).toList();
+    }
+
+
 }

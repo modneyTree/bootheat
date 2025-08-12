@@ -7,9 +7,15 @@ import java.util.Optional;
 
 public interface TableVisitRepository extends JpaRepository<TableVisit, Long> {
 
-    // 해당 테이블의 "가장 최근 OPEN visit" (있으면 그걸 사용)
+    // 현재 OPEN 상태의 최신 방문 (startedAt 내림차순)
     Optional<TableVisit> findFirstByTable_TableIdAndStatusOrderByStartedAtDesc(Long tableId, String status);
 
-    // 다음 visit_no 계산용: 마지막 방문 번호
+    // visit_no 기준 가장 최근 방문
     Optional<TableVisit> findTopByTable_TableIdOrderByVisitNoDesc(Long tableId);
+
+    // startedAt 기준 가장 최근 방문 (OPEN 없을 때 fallback 용)
+    Optional<TableVisit> findTopByTable_TableIdOrderByStartedAtDesc(Long tableId);
+
+    boolean existsByTable_TableIdAndStatus(Long tableId, String status);
+
 }

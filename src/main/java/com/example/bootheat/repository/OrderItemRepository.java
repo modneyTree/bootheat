@@ -1,6 +1,8 @@
+// src/main/java/com/example/bootheat/repository/OrderItemRepository.java
 package com.example.bootheat.repository;
 
 import com.example.bootheat.domain.OrderItem;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,22 +11,47 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
+
+    // 주문 상세 라인 조회 (OrderService.getOrder)
     List<OrderItem> findByOrder_OrderId(Long orderId);
 
-    // 메뉴별 수량/매출 집계 (오늘, APPROVED만)
+    // 오늘/기간 집계 (StatsService.todayStats 등)
     @Query("""
-        select oi.menuItem.menuItemId,
-               oi.menuItem.name,
-               sum(oi.quantity) as qty,
-               sum(oi.quantity * oi.unitPrice) as amount
-        from OrderItem oi
-          join oi.order o
-        where o.booth.boothId = :boothId
-          and (o.status = 'APPROVED' or o.status = 'FINISHED')
-          and o.approvedAt >= :start and o.approvedAt < :end
-        group by oi.menuItem.menuItemId, oi.menuItem.name
-    """)
+           select oi.menuItem.menuItemId,
+                  oi.menuItem.name,
+                  sum(oi.quantity) as qty,
+                  sum(oi.quantity * oi.unitPrice) as amount
+             from OrderItem oi
+            where oi.order.booth.boothId = :boothId
+              and oi.order.createdAt between :start and :end
+            group by oi.menuItem.menuItemId, oi.menuItem.name
+           """)
     List<Object[]> aggregateMenuToday(@Param("boothId") Long boothId,
                                       @Param("start") LocalDateTime start,
                                       @Param("end") LocalDateTime end);
+
+    // (확장) 동일 쿼리를 범용 이름으로도 제공 — 기존/신규 서비스 둘 다 사용 가능
+    @Query("""
+           select oi.menuItem.menuItemId,
+                  oi.menuItem.name,
+                  sum(oi.quantity) as qty,
+                  sum(oi.quantity * oi.unitPrice) as amount
+             from OrderItem oi
+            where oi.order.booth.boothId = :boothId
+              and oi.order.createdAt between :start and :end
+            group by oi.menuItem.menuItemId, oi.menuItem.name
+           """)
+    List<Object[]> aggregateMenuBetween(@Param("boothId") Long boothId,
+                                        @Param("start") LocalDateTime start,
+                                        @Param("end") LocalDateTime end);
+
+    // 특정 부스의 특정 메뉴 총 판매 수량 (통계 API용)
+    @Query("""
+           select coalesce(sum(oi.quantity), 0)
+             from OrderItem oi
+            where oi.order.booth.boothId = :boothId
+              and oi.menuItem.menuItemId = :menuItemId
+           """)
+    long totalQtyByBoothAndMenu(@Param("boothId") Long boothId,
+                                @Param("menuItemId") Long menuItemId);
 }

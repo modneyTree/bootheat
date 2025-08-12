@@ -1,16 +1,12 @@
 package com.example.bootheat.web;
 
 import com.example.bootheat.dto.*;
-import com.example.bootheat.service.BoothQueryService;
+import com.example.bootheat.service.ManagerQueryService;
 import com.example.bootheat.service.MenuService;
 import com.example.bootheat.service.OrderService;
 import com.example.bootheat.service.QueryService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -18,7 +14,7 @@ import java.util.List;
 public class PublicController {
     private final QueryService queryService;
     private final OrderService orderService;
-    private final BoothQueryService boothQueryService;
+    private final ManagerQueryService boothQueryService;
     private final MenuService menuService;
 
 //    @GetMapping("/booths/{boothId}/tables/{tableNo}")

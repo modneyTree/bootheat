@@ -35,12 +35,25 @@ public class MenuService {
                 .stream().map(this::toDto).toList();
     }
 
+    // service/MenuService.java (create)
     public MenuItemDto create(CreateMenuRequest req) {
         Booth booth = boothRepo.findById(req.boothId())
                 .orElseThrow(() -> new IllegalArgumentException("BOOTH_NOT_FOUND"));
 
         if (menuRepo.existsByBooth_BoothIdAndName(req.boothId(), req.name()))
             throw new IllegalArgumentException("DUPLICATE_MENU_NAME");
+
+        // category 안전 변환 (null/빈값 처리 + 유효성)
+        String cat = (req.category()==null) ? null : req.category().trim();
+        if (cat == null || cat.isEmpty()) {
+            throw new IllegalArgumentException("CATEGORY_REQUIRED");
+        }
+        com.example.bootheat.support.Category category;
+        try {
+            category = com.example.bootheat.support.Category.valueOf(cat.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("INVALID_CATEGORY");
+        }
 
         MenuItem m = MenuItem.builder()
                 .booth(booth)
@@ -50,11 +63,12 @@ public class MenuService {
                 .modelUrl(req.modelUrl())
                 .previewImage(req.previewImage())
                 .description(req.description())
-                .category(Category.valueOf(req.category().toUpperCase())) // ★
+                .category(category)   // ★ 추가된 필드 저장
                 .build();
 
         return toDto(menuRepo.save(m));
     }
+
 
     public MenuItemDto update(Long menuItemId, UpdateMenuRequest req) {
         MenuItem m = menuRepo.findById(menuItemId)
@@ -98,4 +112,37 @@ public class MenuService {
                 m.getCategory() == null ? null : m.getCategory().name()
         );
     }
+
+    @Transactional
+    public MenuItemDto updateScoped(Long boothId, Long menuItemId, UpdateMenuRequest req) {
+        var m = menuRepo.findByBooth_BoothIdAndMenuItemId(boothId, menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("MENU_NOT_FOUND"));
+        // 아래는 기존 update 로직 동일
+        if (req.name()!=null && !req.name().isBlank()) m.setName(req.name());
+        if (req.price()!=null) m.setPrice(req.price());
+        if (req.available()!=null) m.setAvailable(req.available());
+        if (req.modelUrl()!=null) m.setModelUrl(req.modelUrl());
+        if (req.previewImage()!=null) m.setPreviewImage(req.previewImage());
+        if (req.description()!=null) m.setDescription(req.description());
+        if (req.category()!=null && !req.category().isBlank())
+            m.setCategory(Category.valueOf(req.category().toUpperCase()));
+        return toDto(m);
+    }
+
+    @Transactional
+    public void deleteScoped(Long boothId, Long menuItemId) {
+        var m = menuRepo.findByBooth_BoothIdAndMenuItemId(boothId, menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("MENU_NOT_FOUND"));
+        menuRepo.delete(m);
+    }
+
+    // service/MenuService.java (setter 추가)
+    @Transactional
+    public void setAvailable(Long menuItemId, boolean available) {
+        var m = menuRepo.findById(menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("MENU_NOT_FOUND"));
+        m.setAvailable(available);
+    }
+
+
 }

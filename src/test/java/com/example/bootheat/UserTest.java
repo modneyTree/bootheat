@@ -29,7 +29,7 @@ class UserTest {
 
         // when: 매니저 등록
         CreateManagerUserRequest req =
-                new CreateManagerUserRequest("manager01", "P@ssw0rd!", "MANAGER");
+                new CreateManagerUserRequest("manager01", "P@ssw0rd!", "MANAGER", "카카오톡", "010-1234-5678", "정석찬");
         ManagerUserDto dto = managerUserService.create(boothId, req);
 
         // then: DTO 필드 확인
