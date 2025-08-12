@@ -8,6 +8,7 @@ import com.example.bootheat.dto.MenuItemDto;
 import com.example.bootheat.dto.UpdateMenuRequest;
 import com.example.bootheat.repository.BoothRepository;
 import com.example.bootheat.repository.MenuItemRepository;
+import com.example.bootheat.repository.OrderItemRepository;
 import com.example.bootheat.support.Category;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class MenuService {
 
     private final BoothRepository boothRepo;
     private final MenuItemRepository menuRepo;
+    private final OrderItemRepository orderItemRepo;
 
     @Transactional(readOnly = true)
     public MenuItemDto getOne(Long boothId, Long menuItemId) {
@@ -131,8 +133,16 @@ public class MenuService {
 
     @Transactional
     public void deleteScoped(Long boothId, Long menuItemId) {
-        var m = menuRepo.findByBooth_BoothIdAndMenuItemId(boothId, menuItemId)
+        MenuItem m = menuRepo.findById(menuItemId)
                 .orElseThrow(() -> new IllegalArgumentException("MENU_NOT_FOUND"));
+        if (!m.getBooth().getBoothId().equals(boothId))
+            throw new IllegalArgumentException("MENU_NOT_IN_BOOTH");
+
+        if (orderItemRepo.existsByMenuItem_MenuItemId(menuItemId)) {
+            // 참조가 있으면 숨김 처리만
+            m.setAvailable(false);
+            return;
+        }
         menuRepo.delete(m);
     }
 

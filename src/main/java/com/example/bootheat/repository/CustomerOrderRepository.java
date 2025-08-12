@@ -47,16 +47,18 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
                                 @Param("end") LocalDateTime end);
 
     // (확장) 이름만 다른 범용 버전 — 신규 StatsService에서도 사용 가능
+// repository/CustomerOrderRepository.java
     @Query("""
-           select count(o) as cnt,
-                  coalesce(sum(o.totalAmount), 0) as amount
-             from CustomerOrder o
-            where o.booth.boothId = :boothId
-              and o.createdAt between :start and :end
-           """)
+       select count(o) as cnt,
+              sum(o.totalAmount) as amount
+         from CustomerOrder o
+        where o.booth.boothId = :boothId
+          and o.createdAt >= :start
+          and o.createdAt < :end
+       """)
     Object[] sumBetween(@Param("boothId") Long boothId,
-                        @Param("start") LocalDateTime start,
-                        @Param("end") LocalDateTime end);
+                        @Param("start") java.time.LocalDateTime start,
+                        @Param("end")   java.time.LocalDateTime end);
 
     @Query("""
            select function('hour', o.createdAt) as hr,

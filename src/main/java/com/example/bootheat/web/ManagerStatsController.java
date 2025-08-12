@@ -39,6 +39,11 @@ public class ManagerStatsController {
         return statsService.statsSummaryByDate(boothId, date);
     }
 
-
-
+    // GET /api/manager/rankings/menu?boothId=1&metric=qty|amount&limit=5
+    @GetMapping("/rankings/menu")
+    public MenuRankingResponse ranking(@RequestParam Long boothId,
+                                       @RequestParam(defaultValue = "qty") String metric,
+                                       @RequestParam(defaultValue = "5") int limit) {
+        return statsService.ranking(boothId, metric, limit);
+    }
 }

@@ -2,6 +2,7 @@ package com.example.bootheat.web;
 
 import com.example.bootheat.dto.AccountInfoResponse;
 import com.example.bootheat.dto.MenuItemDto;
+import com.example.bootheat.repository.MenuItemRepository;
 import com.example.bootheat.service.ManagerQueryService;
 import com.example.bootheat.service.MenuService;
 import com.example.bootheat.service.QueryService;
@@ -21,11 +22,19 @@ class PublicBoothController {
     private final QueryService queryService;
     private final MenuService menuService;
     private final ManagerQueryService managerQueryService;
+    private final MenuItemRepository menuRepo;
 
     // booths API
+    // GET /api/booths/{boothId}/menus  → 판매중만
     @GetMapping("/{boothId}/menus")
-    public List<MenuItemDto> list(@PathVariable Long boothId) {
-        return menuService.list(boothId);
+    public List<MenuItemDto> menus(@PathVariable Long boothId) {
+        return menuRepo.findByBooth_BoothIdAndAvailableTrueOrderByNameAsc(boothId)
+                .stream()
+                .map(m -> new MenuItemDto(
+                        m.getMenuItemId(), m.getBooth().getBoothId(), m.getName(),
+                        m.getPrice(), m.getAvailable(), m.getModelUrl(), m.getPreviewImage(),
+                        m.getDescription(), m.getCategory()==null?null:m.getCategory().name()
+                )).toList();
     }
     // 단일 메뉴 조회
     @GetMapping("/{boothId}/menus/{menuItemId}")

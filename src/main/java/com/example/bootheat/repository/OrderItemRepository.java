@@ -54,4 +54,5 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
            """)
     long totalQtyByBoothAndMenu(@Param("boothId") Long boothId,
                                 @Param("menuItemId") Long menuItemId);
+    boolean existsByMenuItem_MenuItemId(Long menuItemId);
 }
