@@ -21,21 +21,24 @@ public class StatsService {
     private final OrderItemRepository orderItemRepo;
 
     private static class Range {
-        final LocalDate date;
-        final LocalDateTime start;
+        final LocalDate date;   // 예시: 2023-10-01
+        final LocalDateTime start;  // 예시: 2023-10-01T00:00
         final LocalDateTime end;
         Range(LocalDate date, ZoneId zone) {
             this.date = date;
-            this.start = date.atStartOfDay();
+            this.start = date.atStartOfDay();   // 예시: 2023-10-01T00:00
             this.end = this.start.plusDays(1);
         }
     }
+
+    // 오늘 날짜 범위 생성
     private Range todayRange() {
-        var zone = ZoneId.systemDefault();
-        var date = LocalDate.now(zone);
+        var zone = ZoneId.systemDefault();  // 시스템 기본 시간대 사용
+        var date = LocalDate.now(zone); // 오늘 날짜 (예시: 2023-10-01)
         return new Range(date, zone);
     }
 
+    // 오늘 통계 조회
     public TodayStatsResponse todayStats(Long boothId, int topN) {
         var r = todayRange();
 
@@ -71,6 +74,8 @@ public class StatsService {
         return new TodayStatsResponse(boothId, r.date, totalOrders, totalAmount, peakHour, top);
     }
 
+    // 메뉴 판매 순위 조회
+    // metric: "qty" 또는 "amount"
     public MenuRankingResponse ranking(Long boothId, String metric, int limit) {
         var r = todayRange();
         var rows = orderItemRepo.aggregateMenuToday(boothId, r.start, r.end);
@@ -92,17 +97,20 @@ public class StatsService {
         return new MenuRankingResponse(boothId, r.date, metric, items);
     }
 
+    // 날짜별 통계 조회
     @Transactional(readOnly = true)
     public TodayStatsResponse statsByDate(Long boothId, LocalDate date) {
         var start = date.atStartOfDay();
         var end = start.plusDays(1);
 
-        Object[] sum = orderRepo.sumBetween(boothId, start, end);
-        long totalOrders = sum[0]==null?0L:((Number)sum[0]).longValue();
-        long totalAmount = sum[1]==null?0L:((Number)sum[1]).longValue();
+        var r = todayRange();
+        var totals = orderRepo.sumBetween(boothId, r.start, r.end);
+        long totalOrders = (totals == null) ? 0L : totals.orders();
+        long totalAmount = (totals == null) ? 0L : totals.sales();
+
+        var buckets = orderRepo.hourlyCountsBetween(boothId, r.start, r.end);
 
         Integer peakHour = null;
-        var buckets = orderRepo.hourlyCountsBetween(boothId, start, end);
         if (!buckets.isEmpty()) {
             peakHour = buckets.stream()
                     .max(java.util.Comparator.comparingLong(o -> ((Number)o[1]).longValue()))
@@ -121,11 +129,13 @@ public class StatsService {
         return new TodayStatsResponse(boothId, date, totalOrders, totalAmount, peakHour, top);
     }
 
+    // 기능: 특정 부스의 메뉴 아이템 총 주문 수 조회
     @Transactional(readOnly = true)
     public long totalOrdersForMenu(Long boothId, Long menuItemId) {
         return orderItemRepo.totalQtyByBoothAndMenu(boothId, menuItemId);
     }
 
+    // 기능: 특정 부스의 메뉴 판매 통계 조회
     @Transactional(readOnly = true)
     public MenuRankingResponse menuSales(Long boothId, LocalDate date) {
         var d = (date==null) ? java.time.LocalDate.now() : date;
@@ -141,16 +151,21 @@ public class StatsService {
         return new MenuRankingResponse(boothId, d, "qty", items);
     }
     // service/StatsService.java (메서드 추가)
+    // 기능: 날짜별 통계 요약 조회
     @Transactional(readOnly = true)
-    public StatsSummaryResponse statsSummaryByDate(Long boothId, java.time.LocalDate date) {
+    public StatsSummaryResponse statsSummaryByDate(Long boothId, LocalDate date) {
         var start = date.atStartOfDay();
-        var end = start.plusDays(1);
-        Object[] sum = orderRepo.sumBetween(boothId, start, end);
-        long orders = (sum[0]==null) ? 0L : ((Number)sum[0]).longValue();
-        long sales  = (sum[1]==null) ? 0L : ((Number)sum[1]).longValue();
+        var end   = start.plusDays(1);
+
+        var totals = orderRepo.sumBetween(boothId, start, end); // StatsTotals
+        long orders = (totals == null) ? 0L : totals.orders();
+        long sales  = (totals == null) ? 0L : totals.sales();
+
         return new StatsSummaryResponse(date.toString(), sales, orders);
     }
 
+
+    // 기능: 특정 부스의 메뉴 판매 통계 조회 (메뉴별 판매량)
     @Transactional(readOnly = true)
     public java.util.List<MenuSalesItem> menuSalesItems(Long boothId, java.time.LocalDate date) {
         var d = (date==null) ? java.time.LocalDate.now() : date;
