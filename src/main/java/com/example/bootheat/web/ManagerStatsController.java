@@ -6,19 +6,14 @@ import com.example.bootheat.service.StatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/manager")
 @RequiredArgsConstructor
-    public class ManagerStatsController {
+public class ManagerStatsController {
 
     private final StatsService statsService;
 
     // GET /api/manager/booths/{boothId}/menus/{menuItemId}/metrics/total-orders
-    // 기능: 특정 메뉴 아이템의 총 주문 수를 조회
     @GetMapping("/booths/{boothId}/menus/{menuItemId}/metrics/total-orders")
     public MenuTotalOrdersNewResponse totalOrders(@PathVariable Long boothId,
                                                   @PathVariable Long menuItemId) {
@@ -28,7 +23,6 @@ import java.util.Map;
 
 
     // GET /api/manager/booths/{boothId}/stats/menu-sales?date=YYYY-MM-DD
-    // 기능: 특정 날짜의 메뉴 판매 통계 조회
     @GetMapping("/booths/{boothId}/stats/menu-sales")
     public java.util.List<MenuSalesItem> menuSales(@PathVariable Long boothId,
                                                    @RequestParam(required = false)
@@ -38,8 +32,6 @@ import java.util.Map;
     }
 
     // web/ManagerStatsController.java (엔드포인트 추가/교체)
-    // 기능: 날짜별 통계 조회
-    // GET /api/manager/booths/{boothId}/stats/date/{date}
     @GetMapping("/booths/{boothId}/stats/date/{date}")
     public StatsSummaryResponse summaryByDate(@PathVariable Long boothId,
                                               @PathVariable @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
@@ -48,20 +40,10 @@ import java.util.Map;
     }
 
     // GET /api/manager/rankings/menu?boothId=1&metric=qty|amount&limit=5
-    // 기능: 메뉴 판매 순위 조회
     @GetMapping("/rankings/menu")
     public MenuRankingResponse ranking(@RequestParam Long boothId,
                                        @RequestParam(defaultValue = "qty") String metric,
                                        @RequestParam(defaultValue = "5") int limit) {
         return statsService.ranking(boothId, metric, limit);
-    }
-
-    // GET /api/manager/booths/stats/date/{date}
-    // 응답: { boothId: [ {orderId, totalAmount, createdAt, orderItems:[...]}, ... ], ... }
-    @GetMapping("/booths/stats/date/{date}")
-    public Map<Long, List<OrderWithItemsDto>> allBoothsStatsByDate(
-            @PathVariable @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
-            LocalDate date) {
-        return statsService.allBoothsOrdersByDate(date);
     }
 }
