@@ -4,5 +4,5 @@ import java.time.Instant;
 
 public record ManagerUserDto(
         Long managerId, Long boothId, String username, String role,
-        String account, Instant createdAt // ★ 선택
+        String accountBank, String accountNo, String accountHolder
 ) {}

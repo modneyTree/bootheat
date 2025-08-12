@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
@@ -55,4 +56,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     long totalQtyByBoothAndMenu(@Param("boothId") Long boothId,
                                 @Param("menuItemId") Long menuItemId);
     boolean existsByMenuItem_MenuItemId(Long menuItemId);
+
+    // 여러 주문에 대한 라인아이템을 한 번에 로딩 (menuItem까지 로딩)
+    @EntityGraph(attributePaths = {"menuItem"})
+    List<OrderItem> findByOrder_OrderIdIn(Collection<Long> orderIds);
 }

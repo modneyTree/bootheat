@@ -17,7 +17,7 @@ public class CorsConfig {
 
         // 허용할 프론트 도메인
         config.setAllowedOrigins(List.of("https://booth-eat-2.vercel.app", "http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
